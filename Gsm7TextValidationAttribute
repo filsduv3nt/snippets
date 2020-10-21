@@ -1,0 +1,49 @@
+namespace Snippets.WebApi.Controllers.ViewModel.Validation
+{
+    using System;
+    using System.Collections.Generic;
+    using System.ComponentModel.DataAnnotations;
+    using System.Globalization;
+    using System.Linq;
+    using System.Reflection;
+    using System.Text.RegularExpressions;
+
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
+    public class Gsm7TextValidationAttribute : ValidationAttribute
+    {
+        private readonly List<char> _specialCharacters = new List<char>() { '€', '^', '\\', '{', '}', '[', ']', '~', '|' };
+        private readonly Regex _compiledRegex;
+
+        public Gsm7TextValidationAttribute() : base("Message text is over 160 characters after encoding or contains invalid characters")
+        {
+            _compiledRegex = new Regex(@"^[a-zA-Z0-9~!@#$%^&*()`\[\]{};':,./<>?| ]*$", RegexOptions.Compiled);
+        }
+
+        public override bool RequiresValidationContext
+            => true;
+
+        public override string FormatErrorMessage(string name)
+            => string.Format(CultureInfo.CurrentCulture, ErrorMessageString, name);
+
+        protected override ValidationResult IsValid(object value, ValidationContext validationContext)
+        {
+            if (!(value is String)) throw new ArgumentException($"The current property is not of string type");
+
+            var castTypeCurrent = (string)value ?? "";
+            int specialCharsCount = 0;
+
+            if (!_compiledRegex.IsMatch(castTypeCurrent))
+                return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+
+            foreach (var specialCharacter in _specialCharacters)
+                specialCharsCount += castTypeCurrent.Count(f => f == specialCharacter);
+
+            int encodedSmsTextCharactersCount = (castTypeCurrent.Length - specialCharsCount) + specialCharsCount * 2;
+
+            if (encodedSmsTextCharactersCount > 160)
+                return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+
+            return null;
+        }
+    }
+}
